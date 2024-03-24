@@ -1,0 +1,48 @@
+name: CI
+
+# 只监听 master 分支的改动
+
+# 自定义环境变量
+env:
+  GIT_USER: Kukmoon
+  GIT_EMAIL: ${{secrets.USERNAME}}
+
+# jobs: 节下面会有多个 jobs，每个 job 分别同时在独立的虚拟机中运行
+jobs:
+
+  # 此处为同步图床仓库单开一个 job
+  sync_img_host_to_other_img_hosts:
+    name: Sync images from GitHub 2 other img hosts
+    runs-on: ubuntu-latest
+    env:
+      RC_PASSWD: ${{secrets.PASSWORD}}
+      GITHUB_IMGHOST: Kukmoon/img
+    steps:
+
+      # 获取图床 repo 中的图片，actions/checkout 工具可以将 repository 参数指定的仓库拉取到当前虚拟机的 ${GITHUB_WORKPLACE} 目录
+      - name: GetImg
+        uses: actions/checkout@v2
+        with:
+          repository: 'Kukmoon/img'         
+          
+      # 安装 rclone
+      # 似乎每个小节开始时，GitHub Action 都会强制把命令的运行目录放在 ${GITHUB_WORKPLACE}，所以本小节要先切换到 ~ 目录，以免污染 ${GITHUB_WORKPLACE} 的内容。
+      - name: Install rclone
+        run: |
+          cd ~
+          curl https://rclone.org/install.sh | sudo bash
+          
+      # 配置 rclone
+      # 似乎每个小节开始时，GitHub Action 都会强制把命令的运行目录放在 ${GITHUB_WORKPLACE}，要用的 rclone.zip 就在此目录，所以不需要另外找了
+      - name: Configure rclone
+        run: |
+          mkdir -p ~/.config/rclone    # 建立配置目录
+          unzip -P ${RC_PASSWD} rclone.zip -d ~/.config/rclone    # 解压配置文件
+           
+      # 同步到 OneDrive
+      # 似乎每个小节开始时，GitHub Action 都会强制把命令的运行目录放在 ${GITHUB_WORKPLACE}，要同步的图片都在此目录，就不需要另外找了
+      - name: Sync to OneDrive
+        run: |
+          sudo timedatectl set-timezone "Asia/Shanghai"    # 更改时区
+          rclone mkdir onedrive_z:/github/img    # 即使存在此目录，也不会产生出错提示
+          rclone sync ./test onedrive_z:/github/img    # 同步到 OneDrive       
